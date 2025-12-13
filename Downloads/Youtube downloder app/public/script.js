@@ -78,7 +78,27 @@ downloadBtn.addEventListener('click', async function() {
 
         if (response.ok) {
             updateProgress(100);
-            showStatus(data.message, 'success');
+            
+            // Check if we have download services (Netlify deployment)
+            if (data.downloadServices && data.downloadServices.length > 0) {
+                showStatus(data.message, 'info');
+                // Show download services
+                let servicesHtml = '<div style="margin-top: 15px; text-align: left;">';
+                servicesHtml += '<p style="font-weight: bold; margin-bottom: 10px;">Use these free services:</p>';
+                data.downloadServices.forEach((service, index) => {
+                  servicesHtml += `<div style="margin-bottom: 10px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">`;
+                  servicesHtml += `<a href="${service.url}" target="_blank" style="color: #4CAF50; text-decoration: none; font-weight: bold;">${service.service}</a><br>`;
+                  servicesHtml += `<small>${service.note}</small>`;
+                  servicesHtml += `</div>`;
+                });
+                servicesHtml += '</div>';
+                statusMessage.innerHTML = data.message + servicesHtml;
+                statusMessage.className = 'status-message success';
+            } else {
+                // Local server response with actual download
+                showStatus(data.message || 'Download successful!', 'success');
+            }
+            
             urlInput.value = '';
             setTimeout(() => {
                 progressContainer.style.display = 'none';

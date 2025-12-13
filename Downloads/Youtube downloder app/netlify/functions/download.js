@@ -1,10 +1,207 @@
-const { spawn } = require('child_process');
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
 const validator = require('validator');
 
-// Download directory
+// Helper functions
+function isValidYouTubeUrl(url) {
+  const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)\/[^\s]*$/;
+  return youtubeRegex.test(url);
+}
+
+function isValidInstagramUrl(url) {
+  const instagramRegex = /^(https?:\/\/)?(www\.)?instagram\.com\/(p|reel|tv|stories)\/[^\s]*$/;
+  return instagramRegex.test(url);
+}
+
+function containsSuspiciousPatterns(url) {
+  const suspiciousPatterns = [
+    /[;&|`$(){}[\]<>]/,  // Shell metacharacters
+    /\.\.\//,             // Path traversal
+    /eval\(/i,            // eval function
+    /exec\(/i,            // exec function
+    /process\./i,         // Node.js process
+  ];
+  
+  return suspiciousPatterns.some(pattern => pattern.test(url));
+}
+
+// CORS headers for all responses
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Content-Type': 'application/json'
+};
+
+// Main handler
+exports.handler = async (event, context) => {
+  console.log('Download function called', {
+    method: event.httpMethod,
+    path: event.path,
+    body: event.body
+  });
+
+  // Handle preflight requests
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: corsHeaders,
+      body: JSON.stringify({ status: 'ok' })
+    };
+  }
+
+  // Only allow POST requests
+  if (event.httpMethod !== 'POST') {
+    console.log('Invalid method:', event.httpMethod);
+    return {
+      statusCode: 405,
+      headers: corsHeaders,
+      body: JSON.stringify({ error: 'Method not allowed. Use POST.' })
+    };
+  }
+
+  try {
+    // Parse request body
+    let url, format;
+    
+    console.log('Event body:', event.body);
+    
+    if (!event.body) {
+      console.log('No body provided');
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Request body is empty' })
+      };
+    }
+
+    try {
+      const parsedBody = typeof event.body === 'string' 
+        ? JSON.parse(event.body)
+        : event.body;
+      url = parsedBody.url;
+      format = parsedBody.format;
+    } catch (parseErr) {
+      console.log('JSON parse error:', parseErr.message);
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Invalid JSON in request body' })
+      };
+    }
+
+    // Input validation
+    if (!url || typeof url !== 'string') {
+      console.log('Invalid URL:', url);
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Invalid URL provided' })
+      };
+    }
+
+    const trimmedUrl = url.trim();
+
+    // Check for suspicious patterns
+    if (containsSuspiciousPatterns(trimmedUrl)) {
+      console.log('Suspicious patterns detected in URL');
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Suspicious URL detected' })
+      };
+    }
+
+    // Validate format
+    if (!format || !['video', 'audio'].includes(format)) {
+      console.log('Invalid format:', format);
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Invalid format. Choose video or audio.' })
+      };
+    }
+
+    // Determine platform
+    const isYouTube = isValidYouTubeUrl(trimmedUrl);
+    const isInstagram = isValidInstagramUrl(trimmedUrl);
+
+    if (!isYouTube && !isInstagram) {
+      console.log('Invalid platform URL');
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Please provide a valid YouTube or Instagram URL' })
+      };
+    }
+
+    const platform = isYouTube ? 'youtube' : 'instagram';
+
+    console.log(`Processing ${platform} ${format} download from URL: ${trimmedUrl}`);
+
+    // For Netlify: Return download options using external services
+    // Users can download using these services
+    let downloadLinks = [];
+    
+    if (isYouTube) {
+      downloadLinks = [
+        {
+          service: 'Y2Mate',
+          url: `https://www.y2mate.com/en/youtube-downloader`,
+          note: 'Free YouTube downloader - paste your URL there'
+        },
+        {
+          service: 'SS YouTube DL',
+          url: `https://www.ssyoutube.com/`,
+          note: 'Another free YouTube downloader'
+        },
+        {
+          service: 'Loader.to',
+          url: `https://loader.to/`,
+          note: 'Fast and reliable downloader'
+        }
+      ];
+    } else if (isInstagram) {
+      downloadLinks = [
+        {
+          service: 'SaveInsta',
+          url: `https://saveinsta.io/`,
+          note: 'Free Instagram downloader'
+        },
+        {
+          service: 'Insta Downloader',
+          url: `https://instadownloader.io/`,
+          note: 'Download Instagram posts and reels'
+        }
+      ];
+    }
+
+    // Return success response with download options
+    return {
+      statusCode: 200,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        success: true,
+        message: `To download this ${format} from ${platform}, use one of these services:`,
+        platform: platform,
+        format: format,
+        url: trimmedUrl,
+        downloadServices: downloadLinks,
+        instructions: `Copy your ${platform} link and paste it into one of the services above. Downloads will start automatically.`
+      })
+    };
+
+  } catch (error) {
+    console.error('Error:', error);
+    return {
+      statusCode: 500,
+      headers: corsHeaders,
+      body: JSON.stringify({ error: `Server error: ${error.message}` })
+    };
+  }
+};
+
+
+// Download directory - Note: Netlify Functions have limited file system access
+// This function will generate download commands instead of actual downloads
 const downloadsDir = path.join(os.homedir(), 'Downloads');
 
 // Helper functions (from server.js)
