@@ -1,3 +1,6 @@
+// API Configuration - Works both locally and on Netlify
+const API_URL = ''; // Empty means use current domain
+
 // DOM Elements
 const urlInput = document.getElementById('urlInput');
 const downloadBtn = document.getElementById('downloadBtn');
@@ -60,7 +63,7 @@ downloadBtn.addEventListener('click', async function() {
     showStatus(`Starting ${selectedFormat} download from ${selectedPlatform}...`, 'info');
 
     try {
-        const response = await fetch('/api/download', {
+        const response = await fetch(`${API_URL}/api/download`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

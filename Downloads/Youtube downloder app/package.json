@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "build": "echo 'Building for Netlify deployment'",
+    "deploy": "netlify deploy --prod"
   },
   "keywords": ["youtube", "downloader", "video", "audio"],
   "author": "",
@@ -18,5 +20,8 @@
     "express-rate-limit": "^7.1.5",
     "express-mongo-sanitize": "^2.2.0",
     "validator": "^13.11.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
   }
 }

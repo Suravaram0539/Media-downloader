@@ -8,6 +8,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
 const validator = require('validator');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,11 +41,16 @@ const downloadLimiter = rateLimit({
 app.use(limiter); // Apply rate limiter to all requests
 app.use(express.json({ limit: '10mb' })); // Limit JSON payload size
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// CORS configuration - Allow all origins for Netlify deployment
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:*', '127.0.0.1'],
-  credentials: true,
-  optionsSuccessStatus: 200
+  origin: '*',
+  credentials: false,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type']
 }));
+
 app.use(express.static('public'));
 
 // Create downloads directory if it doesn't exist
