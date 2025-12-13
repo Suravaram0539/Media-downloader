@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <!-- Security: Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' http://localhost:* 127.0.0.1:*">
+    <!-- Security: Prevent clickjacking -->
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <!-- Security: Prevent MIME type sniffing -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <!-- Security: Enable XSS protection -->
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <!-- Security: Referrer policy -->
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>Media Downloader - YouTube & Instagram</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎥 Media Downloader</h1>
+            <p class="subtitle">Download videos and audio from YouTube and Instagram</p>
+        </div>
+
+        <div class="main-content">
+            <div class="input-section">
+                <div class="form-group">
+                    <label for="platformSelect">Select Platform:</label>
+                    <div class="platform-buttons">
+                        <button 
+                            class="platform-btn active" 
+                            data-platform="youtube"
+                        >
+                            ▶️ YouTube
+                        </button>
+                        <button 
+                            class="platform-btn" 
+                            data-platform="instagram"
+                        >
+                            📷 Instagram
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="urlInput">Media URL:</label>
+                    <input 
+                        type="text" 
+                        id="urlInput" 
+                        placeholder="Paste YouTube or Instagram URL here..." 
+                        class="url-input"
+                    >
+                </div>
+
+                <div class="format-section">
+                    <label class="format-label">Select Format:</label>
+                    <div class="format-buttons">
+                        <button 
+                            class="format-btn active" 
+                            data-format="video"
+                        >
+                            🎬 Video (MP4)
+                        </button>
+                        <button 
+                            class="format-btn" 
+                            data-format="audio"
+                        >
+                            🎵 Audio (M4A)
+                        </button>
+                    </div>
+                </div>
+
+                <button id="downloadBtn" class="download-btn">
+                    ⬇️ Download
+                </button>
+            </div>
+
+            <div class="status-section">
+                <div id="statusMessage" class="status-message"></div>
+                <div id="progressContainer" class="progress-container" style="display: none;">
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill"></div>
+                    </div>
+                    <p id="progressText" class="progress-text">Downloading...</p>
+                </div>
+            </div>
+
+            <footer class="footer">
+                <div class="footer-content">
+                    <p class="copyright">© 2025 Media Downloader - YouTube & Instagram Downloader</p>
+                    <p class="developer">Developed by <strong>Jagadeeswar Reddy S</strong></p>
+                    <p class="about">A secure, feature-rich media downloader with enterprise-grade security. Download videos and audio from YouTube and Instagram with ease.</p>
+                    <p class="tech">Built with Node.js, Express, yt-dlp, and modern web technologies</p>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
