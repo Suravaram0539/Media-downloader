@@ -8,3 +8,10 @@ dist/
 build/
 .vscode/
 .idea/
+*.mp4
+*.m4a
+*.webm
+*.mkv
+*.avi
+*.mov
+
