@@ -11,8 +11,8 @@
   port = 3000
 
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  from = "/api/download"
+  to = "/.netlify/functions/download"
   status = 200
   force = false
 

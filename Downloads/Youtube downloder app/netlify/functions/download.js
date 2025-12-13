@@ -97,15 +97,20 @@ function downloadMedia(url, format, outputPath, platform) {
 
 // Main handler
 exports.handler = async (event, context) => {
+  // CORS headers for all responses
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Content-Type': 'application/json'
+  };
+
   // Handle preflight requests
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      }
+      headers: corsHeaders,
+      body: JSON.stringify({ status: 'ok' })
     };
   }
 
@@ -113,25 +118,32 @@ exports.handler = async (event, context) => {
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ error: 'Method not allowed' })
+      headers: corsHeaders,
+      body: JSON.stringify({ error: 'Method not allowed. Use POST.' })
     };
   }
 
   try {
-    const { url, format } = JSON.parse(event.body);
+    // Parse request body
+    let url, format;
+    
+    if (!event.body) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Request body is empty' })
+      };
+    }
+
+    const parsedBody = JSON.parse(event.body);
+    url = parsedBody.url;
+    format = parsedBody.format;
 
     // Input validation
     if (!url || typeof url !== 'string') {
       return {
         statusCode: 400,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json'
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ error: 'Invalid URL provided' })
       };
     }
@@ -142,10 +154,7 @@ exports.handler = async (event, context) => {
     if (containsSuspiciousPatterns(trimmedUrl)) {
       return {
         statusCode: 400,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json'
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ error: 'Suspicious URL detected' })
       };
     }
@@ -154,10 +163,7 @@ exports.handler = async (event, context) => {
     if (!format || !['video', 'audio'].includes(format)) {
       return {
         statusCode: 400,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json'
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ error: 'Invalid format. Choose video or audio.' })
       };
     }
@@ -169,10 +175,7 @@ exports.handler = async (event, context) => {
     if (!isYouTube && !isInstagram) {
       return {
         statusCode: 400,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json'
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ error: 'Please provide a valid YouTube or Instagram URL' })
       };
     }
@@ -193,10 +196,7 @@ exports.handler = async (event, context) => {
       
       return {
         statusCode: 200,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json'
-        },
+        headers: corsHeaders,
         body: JSON.stringify({
           success: true,
           message: `${format.charAt(0).toUpperCase() + format.slice(1)} downloaded successfully: ${result.fileName}`,
@@ -207,10 +207,7 @@ exports.handler = async (event, context) => {
       console.error('Download error:', downloadError);
       return {
         statusCode: 500,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json'
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ error: `Download failed: ${downloadError.message}` })
       };
     }
@@ -219,10 +216,7 @@ exports.handler = async (event, context) => {
     console.error('Error:', error);
     return {
       statusCode: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      },
+      headers: corsHeaders,
       body: JSON.stringify({ error: `Server error: ${error.message}` })
     };
   }
