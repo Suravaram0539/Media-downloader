@@ -73,7 +73,8 @@ downloadBtn.addEventListener('click', async function() {
 
     try {
         const apiUrl = getApiUrl();
-        console.log('Calling API:', apiUrl);
+        console.log('🔹 Calling API:', apiUrl);
+        console.log('🔹 Request body:', JSON.stringify({ url, format: selectedFormat }));
         
         const response = await fetch(apiUrl, {
             method: 'POST',
@@ -86,20 +87,42 @@ downloadBtn.addEventListener('click', async function() {
             })
         });
 
-        console.log('Response status:', response.status);
-        console.log('Response headers:', response.headers);
+        console.log('🔹 Response status:', response.status);
+        console.log('🔹 Response ok:', response.ok);
+        console.log('🔹 Response type:', response.type);
         
         // Try to get text first for debugging
         const responseText = await response.text();
-        console.log('Response text:', responseText);
+        console.log('🔹 Response text length:', responseText.length);
+        console.log('🔹 Response text:', responseText.substring(0, 500));
+        
+        // Check if response is empty
+        if (!responseText || responseText.trim() === '') {
+            console.error('❌ Empty response body received!');
+            showStatus('Server error: Empty response from server', 'error');
+            progressContainer.style.display = 'none';
+            downloadBtn.disabled = false;
+            return;
+        }
+        
+        // Check if response is HTML (error page)
+        if (responseText.includes('<!DOCTYPE') || responseText.includes('<html') || responseText.includes('404') || responseText.includes('500')) {
+            console.error('❌ Received HTML instead of JSON:', responseText.substring(0, 200));
+            showStatus('Server error: Invalid endpoint or function not deployed', 'error');
+            progressContainer.style.display = 'none';
+            downloadBtn.disabled = false;
+            return;
+        }
         
         // Then parse as JSON
         let data;
         try {
             data = JSON.parse(responseText);
+            console.log('✅ Parsed JSON successfully:', data);
         } catch (parseErr) {
-            console.error('JSON parse error:', parseErr);
-            showStatus('Server error: Invalid response format', 'error');
+            console.error('❌ JSON parse error:', parseErr);
+            console.error('❌ Failed to parse:', responseText);
+            showStatus('Server error: Response is not valid JSON', 'error');
             progressContainer.style.display = 'none';
             downloadBtn.disabled = false;
             return;
