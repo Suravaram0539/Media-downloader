@@ -18,13 +18,6 @@
   status = 200
   force = true
 
-# Ensure direct function calls work
-[[redirects]]
-  from = "/.netlify/functions/download"
-  to = "/.netlify/functions/download"
-  status = 200
-  force = false
-
 # CORS headers for all responses
 [[headers]]
   for = "/*"
