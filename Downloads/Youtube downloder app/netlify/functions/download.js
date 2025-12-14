@@ -1,5 +1,3 @@
-const validator = require('validator');
-
 // Helper functions
 function isValidYouTubeUrl(url) {
   const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)\/[^\s]*$/;
@@ -13,188 +11,121 @@ function isValidInstagramUrl(url) {
 
 function containsSuspiciousPatterns(url) {
   const suspiciousPatterns = [
-    /[;&|`$(){}[\]<>]/,  // Shell metacharacters
-    /\.\.\//,             // Path traversal
-    /eval\(/i,            // eval function
-    /exec\(/i,            // exec function
-    /process\./i,         // Node.js process
+    /[;&|`$(){}[\]<>]/,
+    /\.\.\//,
+    /eval\(/i,
+    /exec\(/i,
+    /process\./i,
   ];
-  
   return suspiciousPatterns.some(pattern => pattern.test(url));
 }
 
-// CORS headers for all responses
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Content-Type': 'application/json'
-};
-
 // Main handler
 exports.handler = async (event, context) => {
-  console.log('Download function called', {
-    method: event.httpMethod,
-    path: event.path,
-    body: event.body
-  });
-
-  // Handle preflight requests
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({ status: 'ok' })
-    };
-  }
-
-  // Only allow POST requests
-  if (event.httpMethod !== 'POST') {
-    console.log('Invalid method:', event.httpMethod);
-    return {
-      statusCode: 405,
-      headers: corsHeaders,
-      body: JSON.stringify({ error: 'Method not allowed. Use POST.' })
-    };
-  }
+  // CORS headers - MUST be in every response
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Content-Type': 'application/json'
+  };
 
   try {
-    // Parse request body
-    let url, format;
-    
-    console.log('Event body:', event.body);
-    
-    if (!event.body) {
-      console.log('No body provided');
+    // Handle OPTIONS preflight
+    if (event.httpMethod === 'OPTIONS') {
       return {
-        statusCode: 400,
+        statusCode: 200,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Request body is empty' })
+        body: JSON.stringify({ ok: true })
       };
     }
 
-    try {
-      const parsedBody = typeof event.body === 'string' 
-        ? JSON.parse(event.body)
-        : event.body;
-      url = parsedBody.url;
-      format = parsedBody.format;
-    } catch (parseErr) {
-      console.log('JSON parse error:', parseErr.message);
+    // Only POST allowed
+    if (event.httpMethod !== 'POST') {
       return {
-        statusCode: 400,
+        statusCode: 405,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Invalid JSON in request body' })
+        body: JSON.stringify({ error: 'Method not allowed' })
       };
     }
 
-    // Input validation
-    if (!url || typeof url !== 'string') {
-      console.log('Invalid URL:', url);
+    // Parse body
+    let body = event.body;
+    if (typeof body === 'string') {
+      body = JSON.parse(body);
+    }
+
+    const { url, format } = body;
+
+    // Validate inputs
+    if (!url || !format) {
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Invalid URL provided' })
+        body: JSON.stringify({ error: 'Missing url or format' })
       };
     }
 
-    const trimmedUrl = url.trim();
+    if (!['video', 'audio'].includes(format)) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Format must be video or audio' })
+      };
+    }
 
-    // Check for suspicious patterns
+    const trimmedUrl = String(url).trim();
+
+    // Validate URL
+    const isYT = isValidYouTubeUrl(trimmedUrl);
+    const isIG = isValidInstagramUrl(trimmedUrl);
+
+    if (!isYT && !isIG) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Invalid YouTube or Instagram URL' })
+      };
+    }
+
     if (containsSuspiciousPatterns(trimmedUrl)) {
-      console.log('Suspicious patterns detected in URL');
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Suspicious URL detected' })
+        body: JSON.stringify({ error: 'Invalid URL pattern' })
       };
     }
 
-    // Validate format
-    if (!format || !['video', 'audio'].includes(format)) {
-      console.log('Invalid format:', format);
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ error: 'Invalid format. Choose video or audio.' })
-      };
-    }
+    const platform = isYT ? 'youtube' : 'instagram';
 
-    // Determine platform
-    const isYouTube = isValidYouTubeUrl(trimmedUrl);
-    const isInstagram = isValidInstagramUrl(trimmedUrl);
+    // Return success with download services
+    const services = isYT ? [
+      { name: 'Y2Mate', url: 'https://www.y2mate.com/en/youtube-downloader', desc: 'Free YouTube downloader' },
+      { name: 'SS YouTube DL', url: 'https://www.ssyoutube.com/', desc: 'Fast downloads' },
+      { name: 'Loader.to', url: 'https://loader.to/', desc: 'Reliable downloader' }
+    ] : [
+      { name: 'SaveInsta', url: 'https://saveinsta.io/', desc: 'Free Instagram downloader' },
+      { name: 'Insta Downloader', url: 'https://instadownloader.io/', desc: 'Posts and reels' }
+    ];
 
-    if (!isYouTube && !isInstagram) {
-      console.log('Invalid platform URL');
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ error: 'Please provide a valid YouTube or Instagram URL' })
-      };
-    }
-
-    const platform = isYouTube ? 'youtube' : 'instagram';
-
-    console.log(`Processing ${platform} ${format} download from URL: ${trimmedUrl}`);
-
-    // For Netlify: Return download options using external services
-    // Users can download using these services
-    let downloadLinks = [];
-    
-    if (isYouTube) {
-      downloadLinks = [
-        {
-          service: 'Y2Mate',
-          url: `https://www.y2mate.com/en/youtube-downloader`,
-          note: 'Free YouTube downloader - paste your URL there'
-        },
-        {
-          service: 'SS YouTube DL',
-          url: `https://www.ssyoutube.com/`,
-          note: 'Another free YouTube downloader'
-        },
-        {
-          service: 'Loader.to',
-          url: `https://loader.to/`,
-          note: 'Fast and reliable downloader'
-        }
-      ];
-    } else if (isInstagram) {
-      downloadLinks = [
-        {
-          service: 'SaveInsta',
-          url: `https://saveinsta.io/`,
-          note: 'Free Instagram downloader'
-        },
-        {
-          service: 'Insta Downloader',
-          url: `https://instadownloader.io/`,
-          note: 'Download Instagram posts and reels'
-        }
-      ];
-    }
-
-    // Return success response with download options
     return {
       statusCode: 200,
       headers: corsHeaders,
       body: JSON.stringify({
         success: true,
-        message: `To download this ${format} from ${platform}, use one of these services:`,
+        message: `Use one of these free services to download:`,
         platform: platform,
         format: format,
         url: trimmedUrl,
-        downloadServices: downloadLinks,
-        instructions: `Copy your ${platform} link and paste it into one of the services above. Downloads will start automatically.`
+        downloadServices: services
       })
     };
 
-  } catch (error) {
-    console.error('Error:', error);
+  } catch (err) {
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: JSON.stringify({ error: `Server error: ${error.message}` })
+      body: JSON.stringify({ error: err.message || 'Server error' })
     };
   }
 };

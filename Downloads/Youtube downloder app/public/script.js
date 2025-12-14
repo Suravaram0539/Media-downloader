@@ -1,5 +1,14 @@
 // API Configuration - Works both locally and on Netlify
-const API_URL = ''; // Empty means use current domain
+// On Netlify, this will call /.netlify/functions/download
+// Locally, this will call http://localhost:3000/api/download
+function getApiUrl() {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return '/api/download';
+    } else {
+        // On Netlify
+        return '/.netlify/functions/download';
+    }
+}
 
 // DOM Elements
 const urlInput = document.getElementById('urlInput');
@@ -63,7 +72,8 @@ downloadBtn.addEventListener('click', async function() {
     showStatus(`Starting ${selectedFormat} download from ${selectedPlatform}...`, 'info');
 
     try {
-        const response = await fetch(`${API_URL}/api/download`, {
+        const apiUrl = getApiUrl();
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
