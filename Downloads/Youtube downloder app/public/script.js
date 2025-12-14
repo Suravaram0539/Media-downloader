@@ -73,6 +73,8 @@ downloadBtn.addEventListener('click', async function() {
 
     try {
         const apiUrl = getApiUrl();
+        console.log('Calling API:', apiUrl);
+        
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
@@ -84,7 +86,24 @@ downloadBtn.addEventListener('click', async function() {
             })
         });
 
-        const data = await response.json();
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        
+        // Try to get text first for debugging
+        const responseText = await response.text();
+        console.log('Response text:', responseText);
+        
+        // Then parse as JSON
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (parseErr) {
+            console.error('JSON parse error:', parseErr);
+            showStatus('Server error: Invalid response format', 'error');
+            progressContainer.style.display = 'none';
+            downloadBtn.disabled = false;
+            return;
+        }
 
         if (response.ok) {
             updateProgress(100);
@@ -97,8 +116,8 @@ downloadBtn.addEventListener('click', async function() {
                 servicesHtml += '<p style="font-weight: bold; margin-bottom: 10px;">Use these free services:</p>';
                 data.downloadServices.forEach((service, index) => {
                   servicesHtml += `<div style="margin-bottom: 10px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">`;
-                  servicesHtml += `<a href="${service.url}" target="_blank" style="color: #4CAF50; text-decoration: none; font-weight: bold;">${service.service}</a><br>`;
-                  servicesHtml += `<small>${service.note}</small>`;
+                  servicesHtml += `<a href="${service.url}" target="_blank" style="color: #4CAF50; text-decoration: none; font-weight: bold;">${service.name}</a><br>`;
+                  servicesHtml += `<small>${service.desc}</small>`;
                   servicesHtml += `</div>`;
                 });
                 servicesHtml += '</div>';

@@ -31,6 +31,13 @@ exports.handler = async (event, context) => {
   };
 
   try {
+    // Log for debugging
+    console.log('Handler called:', {
+      method: event.httpMethod,
+      path: event.path,
+      body: event.body ? 'present' : 'empty'
+    });
+
     // Handle OPTIONS preflight
     if (event.httpMethod === 'OPTIONS') {
       return {
@@ -45,14 +52,30 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 405,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Method not allowed' })
+        body: JSON.stringify({ error: 'Method not allowed. Use POST.' })
       };
     }
 
-    // Parse body
+    // Parse body - handle both string and object
     let body = event.body;
+    if (!body) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Request body is empty' })
+      };
+    }
+
     if (typeof body === 'string') {
-      body = JSON.parse(body);
+      try {
+        body = JSON.parse(body);
+      } catch (e) {
+        return {
+          statusCode: 400,
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Invalid JSON in request body' })
+        };
+      }
     }
 
     const { url, format } = body;
@@ -92,7 +115,7 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Invalid URL pattern' })
+        body: JSON.stringify({ error: 'Invalid URL pattern detected' })
       };
     }
 
@@ -108,24 +131,26 @@ exports.handler = async (event, context) => {
       { name: 'Insta Downloader', url: 'https://instadownloader.io/', desc: 'Posts and reels' }
     ];
 
+    const responseBody = JSON.stringify({
+      success: true,
+      message: `Use one of these free services to download:`,
+      platform: platform,
+      format: format,
+      downloadServices: services
+    });
+
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({
-        success: true,
-        message: `Use one of these free services to download:`,
-        platform: platform,
-        format: format,
-        url: trimmedUrl,
-        downloadServices: services
-      })
+      body: responseBody
     };
 
   } catch (err) {
+    console.error('Error in handler:', err);
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: JSON.stringify({ error: err.message || 'Server error' })
+      body: JSON.stringify({ error: 'Internal server error: ' + (err.message || 'Unknown error') })
     };
   }
 };

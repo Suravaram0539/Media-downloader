@@ -5,6 +5,7 @@
 
 [functions]
   directory = "netlify/functions"
+  node_bundler = "esbuild"
 
 [dev]
   command = "npm start"
@@ -14,15 +15,11 @@
   from = "/api/download"
   to = "/.netlify/functions/download"
   status = 200
-  force = false
+  force = true
 
-[headers]
-  [[headers.values]]
-    key = "Access-Control-Allow-Origin"
-    value = "*"
-  [[headers.values]]
-    key = "Access-Control-Allow-Methods"
-    value = "GET, POST, PUT, DELETE, OPTIONS"
-  [[headers.values]]
-    key = "Access-Control-Allow-Headers"
-    value = "Content-Type"
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type"
