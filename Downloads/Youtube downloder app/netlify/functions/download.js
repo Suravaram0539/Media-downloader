@@ -20,7 +20,7 @@ function containsSuspiciousPatterns(url) {
   return suspiciousPatterns.some(pattern => pattern.test(url));
 }
 
-// Main handler
+// Main handler - This is the ONLY handler that should be exported
 exports.handler = async (event, context) => {
   // CORS headers - MUST be in every response
   const corsHeaders = {
@@ -32,7 +32,7 @@ exports.handler = async (event, context) => {
 
   try {
     // Log for debugging
-    console.log('Handler called:', {
+    console.log('[NETLIFY FUNCTION] Handler called:', {
       method: event.httpMethod,
       path: event.path,
       body: event.body ? 'present' : 'empty'
@@ -40,6 +40,7 @@ exports.handler = async (event, context) => {
 
     // Handle OPTIONS preflight
     if (event.httpMethod === 'OPTIONS') {
+      console.log('[NETLIFY FUNCTION] Handling OPTIONS preflight');
       return {
         statusCode: 200,
         headers: corsHeaders,
@@ -49,6 +50,7 @@ exports.handler = async (event, context) => {
 
     // Only POST allowed
     if (event.httpMethod !== 'POST') {
+      console.log('[NETLIFY FUNCTION] Invalid method:', event.httpMethod);
       return {
         statusCode: 405,
         headers: corsHeaders,
@@ -59,6 +61,7 @@ exports.handler = async (event, context) => {
     // Parse body - handle both string and object
     let body = event.body;
     if (!body) {
+      console.log('[NETLIFY FUNCTION] Empty body');
       return {
         statusCode: 400,
         headers: corsHeaders,
@@ -70,6 +73,7 @@ exports.handler = async (event, context) => {
       try {
         body = JSON.parse(body);
       } catch (e) {
+        console.error('[NETLIFY FUNCTION] JSON parse error:', e);
         return {
           statusCode: 400,
           headers: corsHeaders,
@@ -79,9 +83,11 @@ exports.handler = async (event, context) => {
     }
 
     const { url, format } = body;
+    console.log('[NETLIFY FUNCTION] Received:', { url: url ? 'present' : 'missing', format });
 
     // Validate inputs
     if (!url || !format) {
+      console.log('[NETLIFY FUNCTION] Missing url or format');
       return {
         statusCode: 400,
         headers: corsHeaders,
@@ -90,6 +96,7 @@ exports.handler = async (event, context) => {
     }
 
     if (!['video', 'audio'].includes(format)) {
+      console.log('[NETLIFY FUNCTION] Invalid format:', format);
       return {
         statusCode: 400,
         headers: corsHeaders,
@@ -103,7 +110,10 @@ exports.handler = async (event, context) => {
     const isYT = isValidYouTubeUrl(trimmedUrl);
     const isIG = isValidInstagramUrl(trimmedUrl);
 
+    console.log('[NETLIFY FUNCTION] URL validation:', { isYT, isIG });
+
     if (!isYT && !isIG) {
+      console.log('[NETLIFY FUNCTION] Invalid YouTube or Instagram URL');
       return {
         statusCode: 400,
         headers: corsHeaders,
@@ -112,6 +122,7 @@ exports.handler = async (event, context) => {
     }
 
     if (containsSuspiciousPatterns(trimmedUrl)) {
+      console.log('[NETLIFY FUNCTION] Suspicious patterns detected');
       return {
         statusCode: 400,
         headers: corsHeaders,
@@ -131,13 +142,17 @@ exports.handler = async (event, context) => {
       { name: 'Insta Downloader', url: 'https://instadownloader.io/', desc: 'Posts and reels' }
     ];
 
-    const responseBody = JSON.stringify({
+    const responseData = {
       success: true,
       message: `Use one of these free services to download:`,
       platform: platform,
       format: format,
       downloadServices: services
-    });
+    };
+
+    // CRITICAL: Ensure body is always a string
+    const responseBody = JSON.stringify(responseData);
+    console.log('[NETLIFY FUNCTION] Returning success response');
 
     return {
       statusCode: 200,
@@ -146,231 +161,18 @@ exports.handler = async (event, context) => {
     };
 
   } catch (err) {
-    console.error('Error in handler:', err);
+    console.error('[NETLIFY FUNCTION] Caught error:', err);
+    
+    // CRITICAL: Always return valid JSON even on error
+    const errorResponse = {
+      error: 'Internal server error',
+      message: err.message || 'Unknown error'
+    };
+
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: JSON.stringify({ error: 'Internal server error: ' + (err.message || 'Unknown error') })
-    };
-  }
-};
-
-
-// Download directory - Note: Netlify Functions have limited file system access
-// This function will generate download commands instead of actual downloads
-const downloadsDir = path.join(os.homedir(), 'Downloads');
-
-// Helper functions (from server.js)
-function isValidYouTubeUrl(url) {
-  const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)\/[^\s]*$/;
-  return youtubeRegex.test(url);
-}
-
-function isValidInstagramUrl(url) {
-  const instagramRegex = /^(https?:\/\/)?(www\.)?instagram\.com\/(p|reel|tv|stories)\/[^\s]*$/;
-  return instagramRegex.test(url);
-}
-
-function containsSuspiciousPatterns(url) {
-  const suspiciousPatterns = [
-    /[;&|`$(){}[\]<>]/,  // Shell metacharacters
-    /\.\.\//,             // Path traversal
-    /eval\(/i,            // eval function
-    /exec\(/i,            // exec function
-    /process\./i,         // Node.js process
-  ];
-  
-  return suspiciousPatterns.some(pattern => pattern.test(url));
-}
-
-function downloadMedia(url, format, outputPath, platform) {
-  return new Promise((resolve, reject) => {
-    const outputTemplate = `${outputPath}.%(ext)s`;
-    
-    let args = ['-m', 'yt_dlp'];
-    
-    if (format === 'audio') {
-      args.push('-x', '--audio-format', 'm4a', '--audio-quality', '192');
-    } else {
-      args.push('-f', 'best[ext=mp4]/best[vcodec=h264]/best');
-    }
-    
-    args.push('-o', outputTemplate, url);
-
-    const pythonProcess = spawn('python', args, {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 180000 // 3 minutes timeout
-    });
-
-    let output = '';
-    let errorOutput = '';
-
-    pythonProcess.stdout.on('data', (data) => {
-      output += data.toString();
-      console.log(`[${platform.toUpperCase()}] Output: ${data.toString()}`);
-    });
-
-    pythonProcess.stderr.on('data', (data) => {
-      errorOutput += data.toString();
-      console.log(`[${platform.toUpperCase()}] Error: ${data.toString()}`);
-    });
-
-    pythonProcess.on('close', (code) => {
-      if (code === 0) {
-        // Find the downloaded file
-        const fileName = path.basename(outputPath);
-        const parentDir = path.dirname(outputPath);
-        
-        try {
-          const files = fs.readdirSync(parentDir);
-          const downloadedFile = files.find(file => file.startsWith(fileName));
-          
-          if (downloadedFile) {
-            resolve({
-              success: true,
-              fileName: downloadedFile,
-              filePath: path.join(parentDir, downloadedFile)
-            });
-          } else {
-            reject(new Error('File not found after download'));
-          }
-        } catch (err) {
-          reject(new Error('Failed to verify downloaded file'));
-        }
-      } else {
-        reject(new Error(`Download failed with code ${code}: ${errorOutput}`));
-      }
-    });
-
-    pythonProcess.on('error', (error) => {
-      reject(new Error(`Process error: ${error.message}`));
-    });
-  });
-}
-
-// Main handler
-exports.handler = async (event, context) => {
-  // CORS headers for all responses
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json'
-  };
-
-  // Handle preflight requests
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({ status: 'ok' })
-    };
-  }
-
-  // Only allow POST requests
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers: corsHeaders,
-      body: JSON.stringify({ error: 'Method not allowed. Use POST.' })
-    };
-  }
-
-  try {
-    // Parse request body
-    let url, format;
-    
-    if (!event.body) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ error: 'Request body is empty' })
-      };
-    }
-
-    const parsedBody = JSON.parse(event.body);
-    url = parsedBody.url;
-    format = parsedBody.format;
-
-    // Input validation
-    if (!url || typeof url !== 'string') {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ error: 'Invalid URL provided' })
-      };
-    }
-
-    const trimmedUrl = url.trim();
-
-    // Check for suspicious patterns
-    if (containsSuspiciousPatterns(trimmedUrl)) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ error: 'Suspicious URL detected' })
-      };
-    }
-
-    // Validate format
-    if (!format || !['video', 'audio'].includes(format)) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ error: 'Invalid format. Choose video or audio.' })
-      };
-    }
-
-    // Determine platform
-    const isYouTube = isValidYouTubeUrl(trimmedUrl);
-    const isInstagram = isValidInstagramUrl(trimmedUrl);
-
-    if (!isYouTube && !isInstagram) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ error: 'Please provide a valid YouTube or Instagram URL' })
-      };
-    }
-
-    const platform = isYouTube ? 'youtube' : 'instagram';
-
-    // Generate filename with timestamp
-    const timestamp = Date.now();
-    const filename = format === 'audio' 
-      ? `${platform}_audio_${timestamp}`
-      : `${platform}_video_${timestamp}`;
-    
-    const outputPath = path.join(downloadsDir, filename);
-
-    // Download media
-    try {
-      const result = await downloadMedia(trimmedUrl, format, outputPath, platform);
-      
-      return {
-        statusCode: 200,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          success: true,
-          message: `${format.charAt(0).toUpperCase() + format.slice(1)} downloaded successfully: ${result.fileName}`,
-          fileName: result.fileName
-        })
-      };
-    } catch (downloadError) {
-      console.error('Download error:', downloadError);
-      return {
-        statusCode: 500,
-        headers: corsHeaders,
-        body: JSON.stringify({ error: `Download failed: ${downloadError.message}` })
-      };
-    }
-
-  } catch (error) {
-    console.error('Error:', error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ error: `Server error: ${error.message}` })
+      body: JSON.stringify(errorResponse)
     };
   }
 };
